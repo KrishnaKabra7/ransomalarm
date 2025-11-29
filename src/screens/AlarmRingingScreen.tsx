@@ -40,12 +40,14 @@ export default function AlarmRingingScreen() {
     loadAlarm();
   }, [route.params.alarmId]);
 
-  // Play alarm sound (looping)
+  // Alarm alert with vibration as the primary mechanism
+  // Sound support can be added by placing alarm.mp3 in assets folder
   useEffect(() => {
     let isMounted = true;
     
-    const playSound = async () => {
+    const setupAlarm = async () => {
       try {
+        // Configure audio mode for alarm
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
@@ -53,29 +55,31 @@ export default function AlarmRingingScreen() {
           shouldDuckAndroid: false,
         });
         
-        // Use a system alarm sound or beep pattern
-        const { sound: alarmSound } = await Audio.Sound.createAsync(
-          // Using a simple tone - in production, use a proper alarm sound file
-          { uri: 'https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg' },
-          { isLooping: true, volume: 1.0 }
-        );
+        // Note: To add custom alarm sound:
+        // 1. Add alarm.mp3 to assets folder
+        // 2. Uncomment the code below:
+        // const { sound: alarmSound } = await Audio.Sound.createAsync(
+        //   require('../../assets/alarm.mp3'),
+        //   { isLooping: true, volume: 1.0 }
+        // );
+        // if (isMounted) {
+        //   setSound(alarmSound);
+        //   await alarmSound.playAsync();
+        // }
         
-        if (isMounted) {
-          setSound(alarmSound);
-          await alarmSound.playAsync();
-        }
       } catch (error) {
-        console.error('Error playing alarm sound:', error);
-        // Fallback to vibration if sound fails
+        console.error('Error setting up audio mode:', error);
       }
     };
 
-    playSound();
+    setupAlarm();
 
-    // Start continuous vibration
+    // Start continuous vibration - primary alert mechanism
+    // Works reliably offline without any external dependencies
+    Vibration.vibrate([500, 200, 500, 200, 500], false);
     vibrationInterval.current = setInterval(() => {
-      Vibration.vibrate([500, 500, 500, 500], false);
-    }, 2000);
+      Vibration.vibrate([500, 200, 500, 200, 500], false);
+    }, 2500);
 
     return () => {
       isMounted = false;

@@ -2,13 +2,20 @@ import * as OTPAuth from 'otpauth';
 import { TOTPSecret } from '../types';
 
 /**
- * Generate a random secret for TOTP
+ * Generate a random secret for TOTP using cryptographically secure random bytes
  */
 export function generateSecret(): string {
-  // Generate 20 random bytes (160 bits) and create a new Secret
+  // Generate 20 random bytes (160 bits) using cryptographically secure method
   const randomBytes = new Uint8Array(20);
-  for (let i = 0; i < 20; i++) {
-    randomBytes[i] = Math.floor(Math.random() * 256);
+  // Use crypto.getRandomValues for secure random generation
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(randomBytes);
+  } else {
+    // Fallback for environments without crypto API
+    // This is less secure but ensures functionality
+    for (let i = 0; i < 20; i++) {
+      randomBytes[i] = Math.floor(Math.random() * 256);
+    }
   }
   // Use the Secret constructor with the bytes buffer
   const secret = new OTPAuth.Secret({ buffer: randomBytes.buffer });
