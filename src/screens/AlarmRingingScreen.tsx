@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import { useAlarm } from '../context/AlarmContext';
 import { RootStackParamList, Alarm } from '../types';
 import { validateCode } from '../services/totp';
@@ -28,7 +28,7 @@ export default function AlarmRingingScreen() {
   const [code, setCode] = useState('');
   const [alarm, setAlarm] = useState<Alarm | null>(null);
   const [error, setError] = useState('');
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const player = useAudioPlayer(null);
   const vibrationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load alarm data
@@ -43,36 +43,13 @@ export default function AlarmRingingScreen() {
   // Alarm alert with vibration as the primary mechanism
   // Sound support can be added by placing alarm.mp3 in assets folder
   useEffect(() => {
-    let isMounted = true;
-    
-    const setupAlarm = async () => {
-      try {
-        // Configure audio mode for alarm
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: false,
-        });
-        
-        // Note: To add custom alarm sound:
-        // 1. Add alarm.mp3 to assets folder
-        // 2. Uncomment the code below:
-        // const { sound: alarmSound } = await Audio.Sound.createAsync(
-        //   require('../../assets/alarm.mp3'),
-        //   { isLooping: true, volume: 1.0 }
-        // );
-        // if (isMounted) {
-        //   setSound(alarmSound);
-        //   await alarmSound.playAsync();
-        // }
-        
-      } catch (error) {
-        console.error('Error setting up audio mode:', error);
-      }
-    };
-
-    setupAlarm();
+    // Note: To add custom alarm sound:
+    // 1. Add alarm.mp3 to assets folder
+    // 2. Uncomment and update the code below:
+    // const audioSource: AudioSource = require('../../assets/alarm.mp3');
+    // player.replace(audioSource);
+    // player.loop = true;
+    // player.play();
 
     // Start continuous vibration - primary alert mechanism
     // Works reliably offline without any external dependencies
@@ -82,7 +59,6 @@ export default function AlarmRingingScreen() {
     }, 2500);
 
     return () => {
-      isMounted = false;
       if (vibrationInterval.current) {
         clearInterval(vibrationInterval.current);
       }
@@ -93,12 +69,11 @@ export default function AlarmRingingScreen() {
   // Cleanup sound when component unmounts
   useEffect(() => {
     return () => {
-      if (sound) {
-        sound.stopAsync();
-        sound.unloadAsync();
+      if (player.playing) {
+        player.pause();
       }
     };
-  }, [sound]);
+  }, [player]);
 
   // Disable back button and navigation (The Lock feature)
   useFocusEffect(
@@ -124,10 +99,9 @@ export default function AlarmRingingScreen() {
     });
   }, [navigation]);
 
-  const stopAlarm = async () => {
-    if (sound) {
-      await sound.stopAsync();
-      await sound.unloadAsync();
+  const stopAlarm = () => {
+    if (player.playing) {
+      player.pause();
     }
     if (vibrationInterval.current) {
       clearInterval(vibrationInterval.current);
@@ -135,7 +109,7 @@ export default function AlarmRingingScreen() {
     Vibration.cancel();
   };
 
-  const handleDismiss = async () => {
+  const handleDismiss = () => {
     if (!alarm?.linkedSecret) {
       Alert.alert('Error', 'This alarm is not linked to a friend');
       return;
@@ -149,8 +123,8 @@ export default function AlarmRingingScreen() {
     const isValid = validateCode(alarm.linkedSecret, code);
     
     if (isValid) {
-      await stopAlarm();
-      await dismissAlarm();
+      stopAlarm();
+      dismissAlarm();
       navigation.navigate('Home');
     } else {
       setError('Invalid code. Ask your friend for the current code!');
